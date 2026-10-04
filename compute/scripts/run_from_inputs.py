@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 
 os.environ.setdefault("JAX_PLATFORMS", "cpu")
 os.environ.setdefault("OMP_NUM_THREADS", "1")
@@ -25,6 +26,14 @@ def module(name, relative):
 mapping = module("input_reproduction_map", "selfrev-r2/evidence/SR-09a_map.py")
 np, jnp = mapping.np, mapping.jnp
 from tfenn_invcalib import bounded_fit, curves, ensemble, likelihood, operative_elastic
+from profile_search import ReferenceImproved, compare_starts, update_reference
+
+# Fresh searches own their output tree and can coexist with supplied references.
+mapping.EVID = ROOT / "results/from-inputs/profiles"
+original_profile_definition = mapping.profile_definition
+mapping.profile_definition = lambda: original_profile_definition() + ":" + ":".join(
+    mapping.current_inputs.digest(path) for path in
+    (Path(__file__), Path(__file__).with_name("profile_search.py")))
 
 
 def read(path):
@@ -33,6 +42,27 @@ def read(path):
 
 def fit_file(form):
     return ROOT / f"results/from-inputs/fit_f{form}.json"
+
+
+def adopt_reference(form, data, fitted, reference):
+    """Invalidate the generated consumers of the previous fitted reference."""
+    data.update(reference=reference, per_parameter={}, status="partial")
+    data.pop("grid_comparison", None)
+    mapping.save(mapping.output(form), data)
+    fitted["reference"] = reference
+    mapping.save(fit_file(form), fitted)
+    steps = mapping.STEPS[form]
+    targets = [ROOT / f"results/from-inputs/responses_f{form}.json"]
+    targets += [ROOT / f"results/from-inputs/elastic/f{form}_{steps}_profile_{name}.json"
+                for name in ("E_p", "E_o", "nu_pp", "nu_po", "nu_op")]
+    targets += [mapping.EVID / f"SR-09a_map_f{form}_{name}.json"
+                for name in mapping.theta_space.space_for_form(form).internal_names]
+    generated = (ROOT / "results/from-inputs").resolve()
+    for target in targets:
+        if not target.resolve().is_relative_to(generated):
+            raise ValueError(f"Derived output is outside the generated directory: {target}")
+        target.unlink(missing_ok=True)
+    print(f"Updated form {form} reference NLL: {reference['nll']}", flush=True)
 
 
 def fit(args):
@@ -80,6 +110,8 @@ def fit(args):
         mapping.save(path, data)
         print(f"Form {args.form}, member {seed['index']}: {result['solver_status']}", flush=True)
     valid = [r["fit"]["best"] for r in data["members"] if r["fit"]["solver_status"] != "failed"]
+    if "reference" in data:
+        valid.append(data["reference"])
     if not valid:
         raise ValueError("No valid calibrated state was obtained")
     reference = min(valid, key=lambda r: r["nll"])
@@ -100,17 +132,63 @@ def fit(args):
 def profiles(args):
     data = read(mapping.output(args.form))
     names = args.names or mapping.theta_space.space_for_form(args.form).internal_names
-    for name in names:
-        _, _, result = mapping.profile_coordinate(args.form, name, 100)
-        data["per_parameter"][name] = result
-        mapping.save(mapping.output(args.form), data)
+    fitted = read(fit_file(args.form))
+    seeds = [(f"member_{row['index']}", row["fit"]["best"]) for row in fitted["members"]
+             if row["fit"]["solver_status"] != "failed"]
+    class ProfileModel(mapping.Model):
+        def fit(self, name, value, seed, budget=100, checkpoint=None):
+            fit_one = super().fit
+            compared = compare_starts(lambda start: fit_one(name, value, start, budget, checkpoint),
+                [("adjacent", seed), ("reference", data["reference"]), *seeds])
+            reference = update_reference(data["reference"], compared["fit"],
+                lambda start: bounded_fit.fit(self, start["theta"]))
+            if reference["nll"] < data["reference"]["nll"]:
+                raise ReferenceImproved({k: reference[k] for k in ("u", "theta", "nll")})
+            return {**compared["fit"], "start_comparisons": compared["attempts"]}
+    mapping.MODELS[args.form] = ProfileModel(args.form)
+    while True:
+        try:
+            for name in names:
+                _, _, result = mapping.profile_coordinate(args.form, name, 100)
+                data["per_parameter"][name] = result
+                mapping.save(mapping.output(args.form), data)
+            break
+        except ReferenceImproved as improvement:
+            adopt_reference(args.form, data, fitted, improvement.reference)
+    data["status"] = "complete" if len(data["per_parameter"]) == mapping.MODELS[args.form].space.n_theta else "partial"
+    mapping.save(mapping.output(args.form), data)
     return {name: data["per_parameter"][name]["classification"] for name in names}
 
 
 def elastic(args):
     producer = module("input_reproduction_elastic", "selfrev-r3/evidence/SR-03_operative_elastic.py")
-    return {name: producer.run_profile(args.form, name)["interval"]
-            for name in (args.names or producer.QUANTITIES)}
+    producer.mapping.EVID = mapping.EVID
+    producer.WORK = ROOT / "results/from-inputs/elastic"
+    data = read(mapping.output(args.form))
+    fitted = read(fit_file(args.form))
+    seeds = [(f"member_{row['index']}", row["fit"]["best"]) for row in fitted["members"]
+             if row["fit"]["solver_status"] != "failed"]
+    single_fit = producer.continued_fit
+    def fit_multiple(model, supplied, seed, checkpoint=None):
+        compared = compare_starts(lambda start: single_fit(model, supplied, start, checkpoint),
+            [("adjacent", seed), ("reference", data["reference"]), *seeds])
+        reference = update_reference(data["reference"], compared["fit"],
+            lambda start: bounded_fit.fit(model, start["theta"]))
+        if reference["nll"] < data["reference"]["nll"]:
+            raise ReferenceImproved({k: reference[k] for k in ("u", "theta", "nll")})
+        return {**compared["fit"], "start_comparisons": compared["attempts"]}
+    producer.continued_fit = fit_multiple
+    while True:
+        try:
+            return {name: producer.run_profile(args.form, name)["interval"]
+                    for name in (args.names or producer.QUANTITIES)}
+        except ReferenceImproved as improvement:
+            prior_names = list(data["per_parameter"])
+            adopt_reference(args.form, data, fitted, improvement.reference)
+            if prior_names:
+                profiles(SimpleNamespace(form=args.form, names=prior_names))
+                data = read(mapping.output(args.form))
+                fitted = read(fit_file(args.form))
 
 
 def responses(args):
