@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+results/
+!compute/results/
+compute/results/*
+!compute/results/data/
+selfrev-r2/evidence/*.json
+selfrev-r3/evidence/*.json

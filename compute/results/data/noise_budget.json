@@ -1,0 +1,15 @@
+{
+  "entries": [
+    {
+      "name": "frozen_driver_end_of_step_transient_noise_floor",
+      "value_MPa": 0.6
+    },
+    {
+      "name": "CU_fixed_sigma_r_CTC_systematic_offset",
+      "value_MPa_range": [
+        5.0,
+        10.0
+      ]
+    }
+  ]
+}

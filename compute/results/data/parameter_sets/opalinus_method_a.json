@@ -1,0 +1,85 @@
+{
+  "kind": "esubi_cwfs_parameter_set",
+  "rock_name": "candidate-sites Opalinus Clay",
+  "calibration_method": "Method-A mean values (nordas2024 Table 4); tab:params in the absorbed source paper 02_constitutive_model.tex:137-156",
+  "role": "nominal / target parameter vector for the identifiability map and the nominal-parameter-forward null (identifiability-map-posterior); NOT a calibration input",
+  "provenance": {
+    "source_paper_bibkey": "nordas2024",
+    "source_locator": "Table 4 Method-A mean values",
+    "absorbed_from": "tfenn-esubi paper/sections/02_constitutive_model.tex:137-156 (tab:params) @ 29ab3d5"
+  },
+  "params": [
+    {
+      "name": "E_p",
+      "value": 9000.0,
+      "unit": "MPa",
+      "desc": "in-plane Young modulus"
+    },
+    {
+      "name": "E_o",
+      "value": 3000.0,
+      "unit": "MPa",
+      "desc": "out-of-plane Young modulus"
+    },
+    {
+      "name": "G_op",
+      "value": 1365.0,
+      "unit": "MPa",
+      "desc": "out-of-plane shear modulus"
+    },
+    {
+      "name": "nu_pp",
+      "value": 0.15,
+      "unit": "-",
+      "desc": "in-plane Poisson ratio"
+    },
+    {
+      "name": "nu_op",
+      "value": 0.1,
+      "unit": "-",
+      "desc": "bedding/normal Poisson ratio"
+    },
+    {
+      "name": "c_peak",
+      "value": 5.0,
+      "unit": "MPa",
+      "desc": "matrix peak cohesion"
+    },
+    {
+      "name": "c_res",
+      "value": 1.0,
+      "unit": "MPa",
+      "desc": "matrix residual cohesion"
+    },
+    {
+      "name": "phi",
+      "value": 33.0,
+      "unit": "deg",
+      "desc": "matrix friction angle"
+    },
+    {
+      "name": "c_j",
+      "value": 3.0,
+      "unit": "MPa",
+      "desc": "joint cohesion"
+    },
+    {
+      "name": "phi_j",
+      "value": 29.0,
+      "unit": "deg",
+      "desc": "joint friction angle"
+    },
+    {
+      "name": "gamma_c",
+      "value": 0.008,
+      "unit": "-",
+      "desc": "softening strain scale (CWFS, this study)"
+    },
+    {
+      "name": "k",
+      "value": 6.0,
+      "unit": "-",
+      "desc": "transition steepness (this study)"
+    }
+  ]
+}
