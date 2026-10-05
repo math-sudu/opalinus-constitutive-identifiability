@@ -1,10 +1,4 @@
-# Tested together on CPython 3.13.7, Windows x86-64, CPU, float64.
+# Coupled constitutive model; tested on CPython 3.13.7, Windows x86-64.
 numpy==2.4.4
-jax==0.10.0
-jaxlib==0.10.0
 scipy==1.16.2
-optax==0.2.8
-psutil==7.1.0
-Pillow==11.3.0
-PyMuPDF==1.27.2.2
-scikit-image==0.26.0
+pytest>=8,<10

@@ -1,9 +1,5 @@
 __pycache__/
 *.pyc
+.pytest_cache/
 .venv/
-results/
-!compute/results/
-compute/results/*
-!compute/results/data/
-selfrev-r2/evidence/*.json
-selfrev-r3/evidence/*.json
+/results/

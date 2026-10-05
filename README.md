@@ -1,148 +1,93 @@
-# Constitutive dependence of calibrated properties in anisotropic Opalinus Clay
+# Coupling weak-plane storage and matrix damage in anisotropic porous rock
 
-Code, measured inputs and full-precision replay states for the paper by Pengcheng Zhu and
-Tielin Chen. Form I combines transverse elastic isotropy, matrix and bedding
-returns, and cohesion softening. Form II adds fabric-dependent matrix strength.
+Constitutive source and digitized inputs for the manuscript by Pengcheng Zhu
+and Tielin Chen. Plane storage depends on the evolving matrix compliance;
+its energy derivative supplies plane-driven matrix damage and reciprocal
+plane-backstress relaxation. The saturated transversely isotropic extension
+predicts stress, undrained pore pressure and drained volume.
 
-## Installation
+## Install and reproduce
 
-The research calculations used CPython 3.13.7 on Windows, CPU JAX/JAXLIB
-0.10.0, NumPy 2.4.4 and SciPy 1.16.2. Direct dependencies are pinned below.
-JAX uses double precision. Run from the repository root:
+Run from this repository's root with Python 3.13:
 
 ```powershell
 python -m venv .venv
 .venv/Scripts/python -m pip install -r compute/requirements.txt
-.venv/Scripts/python compute/scripts/replay_reference.py check --form 1
-.venv/Scripts/python compute/scripts/replay_reference.py check --form 2
+.venv/Scripts/python compute/scripts/derive_energy_coupling.py
+.venv/Scripts/python compute/scripts/fit_coupled_material.py evaluate --parameters compute/material_parameters.json
+.venv/Scripts/python compute/scripts/derive_storage_intervention.py
 ```
 
-On POSIX, use `.venv/bin/python`. In the following commands, `python` means
-the environment interpreter. `check` replays the published reference and four
-constrained cohesion/sharpness states per form. It checks their parameter
-vectors and NLLs, then outputs all 350 predicted stress ordinates and the RMSE.
-The reference NLLs are 2827.773495797381 and 2240.5364175963173, on 3200 and
-1600 integration steps for forms I and II, respectively.
+On POSIX use `.venv/bin/python`. Below, `python` denotes that interpreter.
+The package uses NumPy and SciPy with double precision; it needs no GPU.
 
-## Replay the reported instance
+The first scientific command reproduces the analytical shear example and both
+storage variants. The second evaluates the full-precision parameter input on
+all five measured paths, using 80 uniform intervals plus every observation
+strain. The third freezes plane storage at its initial value on CU-Z and
+CD-P with the same parameters. It follows the material evaluation because
+it reads the generated material record.
 
-Run each command with `--form 1` or `--form 2`:
+Outputs are written under `results/constitutive-method/`:
+`energy_coupling_path.csv`, `energy_coupling_summary.json`,
+`material_fit.json`, `material_paths.csv`, and `storage_intervention.csv`.
+These generated files are not versioned.
+
+The material input gives stress peaks of approximately 24.35, 45.73, 21.57,
+25.67 and 34.42 MPa for CU-S, CU-P, CU-Z, CD-S and CD-P. CU-Z ends at
+0.763 MPa excess pore pressure; freezing plane storage gives a 36.11 MPa peak
+and −1.989 MPa terminal pressure. Both CD volume windows are included in the
+fit. The manuscript discusses remaining peak-strain and CU-P effective-stress
+differences.
+
+## Continue or start a calibration
 
 ```powershell
-python compute/scripts/replay_reference.py summary --form 1
-python compute/scripts/replay_reference.py profiles --form 1
-python compute/scripts/replay_reference.py profiles --operative --form 1
-python compute/scripts/replay_reference.py cross-starts --form 1
-python compute/scripts/replay_reference.py responses --form 1
-python compute/scripts/replay_reference.py deformation --form 1
-python compute/scripts/replay_reference.py residuals --form 1
-python compute/scripts/replay_reference.py expanded --form 1
-python compute/scripts/replay_reference.py profile-point --form 1 --coordinate c_j --side lower
+python compute/scripts/fit_coupled_material.py fit --workers 5
+python compute/scripts/fit_coupled_material.py fit --parameters compute/material_parameters.json --workers 5
+python compute/scripts/fit_coupled_material.py fit --fresh --workers 5
 ```
 
-`compute/reference_inputs.json` contains the complete physical `theta` and
-internal `u` vectors, reference objectives, retained nuisance vectors, fixed
-coordinates and endpoint brackets. It also supplies the independent CD-volume
-readings and the covariance definitions. Its input bindings identify the
-exported model, data and driver bytes; `.gitattributes` preserves their LF
-line endings across Git checkouts. `summary` prints parameter ordering and
-the retained intervals; `profiles` evaluates every supplied row with the model.
-Use `--names c_j k_sharpness` to select coordinate profiles, or
-`--operative --names nu_pp` for the operative Poisson profile.
+The first command continues the saved fit. The second starts from the
+published material input. The third starts from the initializer in the
+source. COBYQA minimizes channel-normalized squared residuals and five
+peak-stress residuals. New fits can enter different branches and need not
+recover the published attained state.
 
-`cross-starts` replays the completed comparisons between three attained
-starting regions. `profile-point` performs new nuisance fits from the retained
-row, reference and those starts, reports failures, and chooses the lowest NLL.
-If it improves the reference, an unconstrained continuation supplies the new
-reference and the output identifies the need to rebuild the profiles.
-The supplied states are preserved.
+Compression is positive, computational strain is dimensionless and stress
+is in MPa. CU tests conserve fluid content at constant total radial stress
+after preparation at 13 MPa; their measured pressure is a calibration channel.
+CD tests hold pore pressure at zero after preparation at 5 MPa. Each channel
+has equal total weight, with scales of 1 MPa for stress and pressure and the
+digitized line half-width for each CD volume trace.
 
-`responses` regenerates measured-path and drained 5 MPa joint-on/off histories
-at 19 bedding angles. `deformation` evaluates CU volume at 0.1% axial strain
-and at the measured endpoints, and CD volume on the digitized comparison
-windows. `residuals` replays the sigma=2/4 cohesion, sharpness and cross-plane
-Poisson brackets,
-the short-range correlated nuisance fits and the matched-variance shear
-comparison. `expanded` replays the retained cohesion, operative Poisson and
-fabric-profile brackets on both integration grids, including 51200/204800
-steps for form II. Use `--names c_j` to select one expanded quantity.
+## Source and measurements
 
-Results print as JSON; `--output results/example.json` writes a new file.
-Existing output files are not overwritten. The first numerical call compiles
-JAX code; complete profile and fine-grid replay takes longer than `check`.
+- `energetic_coupling.py`: reciprocal storage, conjugate forces and the convex
+  monotonic shear slice.
+- `poromechanical_coupling.py`: reciprocal TI elasticity, porous energy,
+  contact and compaction.
+- `coupled_friction_damage.py`: simultaneous matrix flow, Coulomb plane slip,
+  damage and material-point branch continuation.
+- `fit_coupled_material.py`: loading, observations, evolution parameters,
+  scaled residuals, calibration and response export.
 
-## Start a new calibration
+Measured stress and pressure traces are in
+`compute/results/data/nordas_curves/`; measured CD volume windows and
+line-width bands are in `selfrev-r3/evidence/SR-10_measured_volume.json`.
+The historical folder name is retained by the common input loader.
+All were digitized from Nordas et al. (2024), *Rock Mechanics and Rock
+Engineering*, [DOI 10.1007/s00603-023-03509-7](https://doi.org/10.1007/s00603-023-03509-7),
+Figs. 2a–f and 3a–d. They are published-curve readings, not the source authors'
+original laboratory data. `compute/material_parameters.json` contains the
+numerical input for replay; fixed grain/fluid properties and evolution-law
+conventions are explicit in the producer.
+
+Run the mechanical identity, contact, evolution and branch tests with:
 
 ```powershell
-python compute/scripts/run_from_inputs.py fit --form 1
-python compute/scripts/run_from_inputs.py fit --form 2
-python compute/scripts/run_from_inputs.py profiles --form 1
-python compute/scripts/run_from_inputs.py profiles --form 2
-python compute/scripts/run_from_inputs.py elastic --form 1
-python compute/scripts/run_from_inputs.py elastic --form 2
-python compute/scripts/run_from_inputs.py responses --form 1
-python compute/scripts/run_from_inputs.py responses --form 2
+python -m pytest compute/tests -q
 ```
 
-`fit` draws 64 admissible starts with seed 20260706, runs the original 2000-step
-Adam initialization on 400 integration steps, then continues each valid state
-with bounded least squares on 3200 steps for form I or 1600 for form II.
-It records failed starts explicitly and selects the smallest attained NLL.
-Interrupted bounded fits resume from their saved iterate. Optimization and
-profiles can take substantial CPU time; the first use also compiles JAX code.
-The paper used continued fits across integration refinements. A fresh run
-recalculates the analysis from random starts, so optimizer basins and their
-associated local profile intervals can differ from the published attained fit.
-
-`profiles` follows the connected coordinate likelihood interval at
-delta NLL = 1.92, compares the successful fitted-member starts at each nuisance
-fit, and restarts the profiles when a lower unconstrained reference is found. Use
-`--names c_j k_sharpness` to select coordinates. `elastic` applies exact
-constraints to the assembled compliance with the same comparison and reference
-update rule; selectable names are `E_p`, `E_o`,
-`nu_pp`, `nu_po`, and `nu_op`. `G_op` already has a coordinate profile.
-`responses` computes joint-on/off histories on the measured paths and at
-19 bedding angles under constant 5 MPa effective confinement. The net joint
-effect is `100*(gamma_on-gamma_off)/gamma_on` at the final step.
-
-Generated fit states, responses and profiles are written to `results/from-inputs/`.
-These generated files are excluded from version control.
-The `selfrev-r2/evidence/` and `selfrev-r3/evidence/` paths retain the original
-numerical producer locations; the repository contains their source code only.
-
-## Measurements and conventions
-
-Measured inputs were digitized by the authors from Nordas et al.,
-*Rock Mechanics and Rock Engineering*,
-[DOI 10.1007/s00603-023-03509-7](https://doi.org/10.1007/s00603-023-03509-7).
-Deviatoric stresses come from Figs. 2a–c and 3a,b; excess pore pressures
-come from Figs. 2d–f. The reading rules and station arrays are in
-`compute/results/data/nordas_curves/`. CD-volume readings from Figs. 3c,d,
-their pixel ranges and comparison masks are in `compute/reference_inputs.json`.
-These are digitized published curves,
-not the source authors' original laboratory records.
-
-The five specimens are CU-S, CU-P, CU-Z, CD-S and CD-P, with bedding-plane
-angles 90, 0, 30, 90 and 0 degrees to the loading axis. Compression is positive,
-stress is in MPa, and computational strain is dimensionless. The CU paths
-follow measured excess pore pressures from 13 MPa initial effective
-confinement; CD paths remain at 5 MPa. The independent Gaussian residual
-standard deviation is 1 MPa. The shared likelihood loader retains legacy
-constant-confinement offset fields, which are inactive on these measured
-effective-stress paths.
-
-To repeat image reading, obtain the source article through its DOI and run:
-
-```powershell
-python compute/scripts/digitize_source_curves.py --pdf path/to/source.pdf --out-dir results/reading
-```
-
-The script reads native embedded images; scanned or recompressed copies may
-have different image identifiers. The source PDF is not included.
-
-Parameter order, units and admissibility are defined in
-`compute/src/tfenn_invcalib/theta_space.py`; the differentiable constitutive
-implementation is `mirror.py`, and operative elastic mapping is
-`operative_elastic.py`. Full-precision states are numerical inputs to the
-reported-instance replay. Stress/strain arrays and other model outputs are
-regenerated by the commands above.
+Earlier commits retain the preceding paired-calibration study. The current
+files implement the constitutive method described above.

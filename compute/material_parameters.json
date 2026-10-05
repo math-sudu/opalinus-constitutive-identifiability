@@ -1,0 +1,28 @@
+{
+  "parameters": {
+    "E_parallel": 17481.1672604891,
+    "E_normal": 5005.130252274556,
+    "nu_parallel": 0.0,
+    "nu_pn": 0.20654509872980698,
+    "G_normal": 3509.5900113685852,
+    "matrix_cohesion": 0.0043263474642978765,
+    "matrix_friction": 0.9932989965159279,
+    "dilation_fraction": 1.0,
+    "parallel_weight": 0.29160060921667647,
+    "plane_friction": 0.3330824663884544,
+    "plane_compliance": 1.0948329867421454,
+    "initial_density": 0.6978145642867308,
+    "damage_resistance": 0.0031690383164454626,
+    "damage_peak_density": 4.147555470821361,
+    "damage_residual_fraction": 0.059516773846740145,
+    "compaction_onset": 20.872753622944842,
+    "compaction_hardening": 2131.5630531614784,
+    "damage_shape": 1.4917656013273985,
+    "dilation_residual_fraction": 0.028352790779696324,
+    "parallel_residual_weight": 1.4704284839090527,
+    "dilation_density_ratio": 0.13097950048969467,
+    "matrix_contraction": 0.7546242573913102,
+    "stiffness_pressure_fraction": 0.035104582721195765,
+    "friction_residual_fraction": 0.9246954633810296
+  }
+}
